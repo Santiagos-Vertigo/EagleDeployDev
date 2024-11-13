@@ -234,12 +234,9 @@ func main() {
 			if authenticateUser(username, password) {
 				fmt.Println("Login successful!")
 				// Main menu loop after successful login
-				for {
+				loggedIn := true
+				for loggedIn {
 					choice := displayMenu()
-					if choice == 0 {
-						fmt.Println("Logging out...")
-						break // Break out of the displayMenu loop to return to the login menu
-					}
 					switch choice {
 					case 1: // Execute a Playbook
 						for {
@@ -302,6 +299,10 @@ func main() {
 						fmt.Println("-l <keyword>: List YAML files or related names in the EagleDeployment directory.")
 						fmt.Println("-hosts <comma-separated-hosts>: Specify hosts to target (only with -e).")
 						fmt.Println("-h: Display this help page.")
+
+					case 0: // Logout
+						fmt.Println("Logging out...")
+						loggedIn = false // Set to false to exit the main menu loop and return to the login screen
 
 					default:
 						fmt.Println("Invalid choice. Please try again.")
