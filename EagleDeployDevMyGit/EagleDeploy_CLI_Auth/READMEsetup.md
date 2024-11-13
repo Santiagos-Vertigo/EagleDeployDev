@@ -149,3 +149,12 @@ ls -l
 file main
 ```
 If you used `go install`, the binary would typically be located in your `$GOPATH/bin` directory. If you don't see the binary and used `go build`, check the output for error messages that may indicate why it wasn't created.
+
+
+## Adding SQLites 
+
+1.go get github.com/mattn/go-sqlite3
+
+
+go get golang.org/x/crypto/bcrypt
+

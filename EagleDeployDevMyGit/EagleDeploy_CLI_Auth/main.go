@@ -1,15 +1,16 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"golang.org/x/crypto/bcrypt"
-	"gopkg.in/yaml.v2"
-	"io/ioutil"
-	"log"
-	"os"
-	"os/exec"
+    "encoding/json"
+    "fmt"
+    "golang.org/x/crypto/bcrypt"
+    "gopkg.in/yaml.v2"
+    "io/ioutil"
+    "log"
+    "os"
+    "os/exec"
 )
+
 
 type Task struct {
 	Name    string `yaml:"name"`
@@ -29,10 +30,7 @@ type User struct {
 	PasswordHash string `json:"password_hash"`
 }
 
-const (
-	userFilePath = "users.json"
-	maxAttempts  = 3
-)
+const userFilePath = "users.json"
 
 // Load users from users.json
 func loadUsers() ([]User, error) {
@@ -62,6 +60,7 @@ func loadUsers() ([]User, error) {
 	err = json.Unmarshal(file, &users)
 	return users, err
 }
+
 
 // Save users to users.json
 func saveUsers(users []User) error {
@@ -95,7 +94,7 @@ func registerUser(username, password string) error {
 	return saveUsers(users)
 }
 
-// Authenticate a user with limited attempts
+// Authenticate a user
 func authenticateUser(username, password string) bool {
 	users, err := loadUsers()
 	if err != nil {
@@ -105,86 +104,70 @@ func authenticateUser(username, password string) bool {
 
 	for _, user := range users {
 		if user.Username == username {
-			for attempts := 1; attempts <= maxAttempts; attempts++ {
-				err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
-				if err == nil {
-					return true
-				} else if attempts < maxAttempts {
-					fmt.Printf("Incorrect password. Attempt %d of %d. Try again: ", attempts, maxAttempts)
-					fmt.Scan(&password)
-				} else {
-					fmt.Println("Maximum login attempts reached. Access denied.")
-					return false
-				}
+			err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
+			if err == nil {
+				return true
 			}
 			break
 		}
 	}
-	fmt.Println("Invalid username or password.")
 	return false
 }
 
 // Main entry point
 func main() {
-	for {
-		fmt.Println("Welcome to EagleDeploy CLI Auth!")
-		fmt.Println("1. Register")
-		fmt.Println("2. Login")
-		fmt.Println("3. Exit")
-		fmt.Print("Choose an option: ")
-		var choice int
-		fmt.Scan(&choice)
+	fmt.Println("Welcome to EagleDeploy CLI Auth!")
+	fmt.Println("1. Register")
+	fmt.Println("2. Login")
+	fmt.Print("Choose an option: ")
+	var choice int
+	fmt.Scan(&choice)
 
-		var username, password string
-		switch choice {
-		case 1:
-			fmt.Print("Enter username: ")
-			fmt.Scan(&username)
-			fmt.Print("Enter password: ")
-			fmt.Scan(&password)
-			if err := registerUser(username, password); err != nil {
-				fmt.Println("Registration error:", err)
-			} else {
-				fmt.Println("Registration successful!")
-				mainMenu() // Proceed to main menu after successful registration
-			}
-		case 2:
-			fmt.Print("Enter username: ")
-			fmt.Scan(&username)
-			fmt.Print("Enter password: ")
-			fmt.Scan(&password)
-			if authenticateUser(username, password) {
-				fmt.Println("Login successful!")
-				mainMenu() // Proceed to main menu after successful login
-			}
-		case 3:
-			fmt.Println("Exiting.")
-			os.Exit(0)
-		default:
-			fmt.Println("Invalid choice. Please try again.")
+	var username, password string
+	switch choice {
+	case 1:
+		fmt.Print("Enter username: ")
+		fmt.Scan(&username)
+		fmt.Print("Enter password: ")
+		fmt.Scan(&password)
+		if err := registerUser(username, password); err != nil {
+			fmt.Println("Registration error:", err)
+		} else {
+			fmt.Println("Registration successful!")
 		}
+	case 2:
+		fmt.Print("Enter username: ")
+		fmt.Scan(&username)
+		fmt.Print("Enter password: ")
+		fmt.Scan(&password)
+		if authenticateUser(username, password) {
+			fmt.Println("Login successful!")
+			mainMenu() // Proceed to main menu or other functionality
+		} else {
+			fmt.Println("Invalid username or password.")
+		}
+	default:
+		fmt.Println("Invalid choice.")
 	}
 }
 
-// Main menu with options to execute playbook or exit
+// Example main menu that could be expanded with other functionalities
 func mainMenu() {
-	for {
-		fmt.Println("\nMain Menu")
-		fmt.Println("1. Execute Playbook")
-		fmt.Println("2. Exit")
-		fmt.Print("Choose an option: ")
+	fmt.Println("Main Menu")
+	fmt.Println("1. Execute Playbook")
+	fmt.Println("2. Exit")
+	fmt.Print("Choose an option: ")
 
-		var option int
-		fmt.Scan(&option)
-		switch option {
-		case 1:
-			runPlaybook()
-		case 2:
-			fmt.Println("Exiting to main menu.")
-			return
-		default:
-			fmt.Println("Invalid option. Please try again.")
-		}
+	var option int
+	fmt.Scan(&option)
+	switch option {
+	case 1:
+		runPlaybook()
+	case 2:
+		fmt.Println("Exiting.")
+		os.Exit(0)
+	default:
+		fmt.Println("Invalid option.")
 	}
 }
 
