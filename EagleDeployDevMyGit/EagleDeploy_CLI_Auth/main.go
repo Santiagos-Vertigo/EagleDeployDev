@@ -2,8 +2,9 @@ package main
 
 import (
 	"bufio"
-	"database/sql"
+	"encoding/json"
 	"fmt"
+	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
@@ -11,16 +12,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"golang.org/x/crypto/bcrypt"
-	_ "github.com/mattn/go-sqlite3"
 )
 
-// Structs for the YAML structure
 type Task struct {
 	Name    string `yaml:"name"`
 	Command string `yaml:"command"`
 }
+
 type Playbook struct {
 	Name     string   `yaml:"name"`
 	Version  string   `yaml:"version"`
@@ -29,107 +27,117 @@ type Playbook struct {
 	Settings map[string]int `yaml:"settings"`
 }
 
-func main() {
-	// Initialize the database connection
-	db, err := sql.Open("sqlite3", "./users.db")
+type User struct {
+	Username     string `json:"username"`
+	PasswordHash string `json:"password_hash"`
+}
+
+const userFilePath = "users.json"
+
+// Load users from users.json
+func loadUsers() ([]User, error) {
+	var users []User
+	file, err := ioutil.ReadFile(userFilePath)
 	if err != nil {
-		log.Fatal(err)
+		if os.IsNotExist(err) {
+			return users, nil // No file exists yet, return an empty user list
+		}
+		return nil, err
 	}
-	defer db.Close()
+	err = json.Unmarshal(file, &users)
+	return users, err
+}
 
-	// Ensure the users table exists
-	createUserTable(db)
+// Save users to users.json
+func saveUsers(users []User) error {
+	data, err := json.MarshalIndent(users, "", "  ")
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(userFilePath, data, 0644)
+}
 
-	// Display main menu for registration and login
-	fmt.Println("Welcome to EagleDeploy CLI!")
+// Register a new user
+func registerUser(username, password string) error {
+	users, err := loadUsers()
+	if err != nil {
+		return err
+	}
+
+	// Check if username already exists
+	for _, user := range users {
+		if user.Username == username {
+			return fmt.Errorf("user already exists")
+		}
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	users = append(users, User{Username: username, PasswordHash: string(hashedPassword)})
+	return saveUsers(users)
+}
+
+// Authenticate a user
+func authenticateUser(username, password string) bool {
+	users, err := loadUsers()
+	if err != nil {
+		fmt.Println("Error loading users:", err)
+		return false
+	}
+
+	for _, user := range users {
+		if user.Username == username {
+			err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
+			if err == nil {
+				return true
+			}
+			break
+		}
+	}
+	return false
+}
+
+// Main entry point
+func main() {
+	fmt.Println("Welcome to EagleDeploy CLI Auth!")
 	fmt.Println("1. Register")
 	fmt.Println("2. Login")
 	fmt.Print("Choose an option: ")
 	var choice int
 	fmt.Scan(&choice)
 
+	var username, password string
 	switch choice {
 	case 1:
-		if registerUser(db) {
-			fmt.Println("Registration successful. You can now log in.")
+		fmt.Print("Enter username: ")
+		fmt.Scan(&username)
+		fmt.Print("Enter password: ")
+		fmt.Scan(&password)
+		if err := registerUser(username, password); err != nil {
+			fmt.Println("Registration error:", err)
+		} else {
+			fmt.Println("Registration successful!")
 		}
 	case 2:
-		if authenticateUser(db) {
-			fmt.Println("Login successful. Welcome!")
-			mainMenu()
+		fmt.Print("Enter username: ")
+		fmt.Scan(&username)
+		fmt.Print("Enter password: ")
+		fmt.Scan(&password)
+		if authenticateUser(username, password) {
+			fmt.Println("Login successful!")
+			mainMenu() // Proceed to main menu or other functionality
 		} else {
-			fmt.Println("Login failed.")
+			fmt.Println("Invalid username or password.")
 		}
 	default:
 		fmt.Println("Invalid choice.")
 	}
 }
 
-// Create users table if it doesn't exist
-func createUserTable(db *sql.DB) {
-	_, err := db.Exec(`
-	CREATE TABLE IF NOT EXISTS users (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		username TEXT UNIQUE NOT NULL,
-		password_hash TEXT NOT NULL
-	);
-	`)
-	if err != nil {
-		log.Fatal("Failed to create users table:", err)
-	}
-}
-
-// Register a new user
-func registerUser(db *sql.DB) bool {
-	var username, password string
-	fmt.Print("Enter new username: ")
-	fmt.Scan(&username)
-	fmt.Print("Enter new password: ")
-	fmt.Scan(&password)
-
-	// Hash the password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		fmt.Println("Error hashing password:", err)
-		return false
-	}
-
-	// Insert the new user into the database
-	_, err = db.Exec("INSERT INTO users (username, password_hash) VALUES (?, ?)", username, hashedPassword)
-	if err != nil {
-		fmt.Println("Error saving user:", err)
-		return false
-	}
-
-	return true
-}
-
-// Authenticate a user
-func authenticateUser(db *sql.DB) bool {
-	var username, password string
-	fmt.Print("Enter username: ")
-	fmt.Scan(&username)
-	fmt.Print("Enter password: ")
-	fmt.Scan(&password)
-
-	var passwordHash string
-	err := db.QueryRow("SELECT password_hash FROM users WHERE username = ?", username).Scan(&passwordHash)
-	if err != nil {
-		fmt.Println("User not found or database error:", err)
-		return false
-	}
-
-	// Verify password
-	err = bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password))
-	if err != nil {
-		fmt.Println("Incorrect password.")
-		return false
-	}
-
-	return true
-}
-
-// Main menu to execute playbook after login
+// Example main menu that could be expanded with other functionalities
 func mainMenu() {
 	fmt.Println("Main Menu")
 	fmt.Println("1. Execute Playbook")
