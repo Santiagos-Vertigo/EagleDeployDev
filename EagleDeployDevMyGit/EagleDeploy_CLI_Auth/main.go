@@ -108,15 +108,17 @@ func authenticateUser(username, password string) bool {
 
 // Display menu and get user choice
 func displayMenu() int {
-	fmt.Println("\nEagleDeploy Menu:")
-	fmt.Println("1. Execute a Playbook")
+	fmt.Println("\n-----------------------------------")
+	fmt.Println("\n       EagleDeploy Menu:")
+	fmt.Println("\n-----------------------------------")
+	fmt.Println("\n1. Execute a Playbook")
 	fmt.Println("2. List YAML Files")
 	fmt.Println("3. Manage Inventory")
 	fmt.Println("4. Enable/Disable Detailed Logging")
 	fmt.Println("5. Rollback Changes")
 	fmt.Println("6. Show Help")
 	fmt.Println("0. Logout")
-	fmt.Print("Select an option: ")
+	fmt.Print("\nSelect an option: ")
 
 	var choice int
 	fmt.Scanln(&choice)
@@ -199,15 +201,16 @@ func listYAMLFiles(keyword string) {
 	}
 }
 
-// Main entry point
 func main() {
 	reader := bufio.NewReader(os.Stdin)
 	for {
-		fmt.Println("Welcome to EagleDeploy CLI Auth!")
+		fmt.Println("\n-----------------------------------")
+		fmt.Println("\n Welcome to EagleDeploy CLI Auth!")
+		fmt.Println("\n-----------------------------------")
 		fmt.Println("1. Register")
 		fmt.Println("2. Login")
 		fmt.Println("3. Exit")
-		fmt.Print("Choose an option: ")
+		fmt.Print("\nChoose an option: ")
 
 		var choice int
 		fmt.Scan(&choice)
@@ -217,40 +220,36 @@ func main() {
 
 		switch choice {
 		case 1:
-			fmt.Print("Enter username: ")
+			fmt.Print("\nEnter username: ")
 			fmt.Scan(&username)
 			fmt.Print("Enter password: ")
 			fmt.Scan(&password)
 			if err := registerUser(username, password); err != nil {
-				fmt.Println("Registration error:", err)
+				fmt.Println("\nRegistration error:", err)
 			} else {
-				fmt.Println("Registration successful!")
+				fmt.Println("\nRegistration successful!")
 			}
 		case 2:
-			fmt.Print("Enter username: ")
+			fmt.Print("\nEnter username: ")
 			fmt.Scan(&username)
 			fmt.Print("Enter password: ")
 			fmt.Scan(&password)
 			if authenticateUser(username, password) {
-				fmt.Println("Login successful!")
+				fmt.Println("\nLogin successful!")
 				// Main menu loop after successful login
 				for {
 					choice := displayMenu()
-					if choice == 0 { // Logout case
-						fmt.Println("Logging out...")
-						break // Exit the main menu loop to return to the login menu
-					}
 					switch choice {
 					case 1: // Execute a Playbook
 						for {
-							fmt.Print("Enter the path to the YAML playbook file (or type 'back' to return to the menu): ")
+							fmt.Print("\nEnter the path to the YAML playbook file (or type 'back' to return to the menu): ")
 							ymlFilePath, _ := reader.ReadString('\n')
 							ymlFilePath = strings.TrimSpace(ymlFilePath)
 							if ymlFilePath == "back" {
 								break
 							}
 
-							fmt.Print("Enter comma-separated list of target hosts (leave empty for all in playbook): ")
+							fmt.Print("\nEnter comma-separated list of target hosts (leave empty for all in playbook): ")
 							hosts, _ := reader.ReadString('\n')
 							hosts = strings.TrimSpace(hosts)
 							if hosts != "" {
@@ -262,7 +261,7 @@ func main() {
 
 					case 2: // List YAML Files
 						for {
-							fmt.Print("Enter keyword to filter YAML files (or type 'back' to return to the menu): ")
+							fmt.Print("\nEnter keyword to filter YAML files (or type 'back' to return to the menu): ")
 							keyword, _ := reader.ReadString('\n')
 							keyword = strings.TrimSpace(keyword)
 							if keyword == "back" {
@@ -272,24 +271,24 @@ func main() {
 						}
 
 					case 3: // Manage Inventory
-						fmt.Println("Managing inventory (not yet implemented).")
+						fmt.Println("\nManaging inventory (not yet implemented).")
 
 					case 4: // Enable/Disable Detailed Logging
 						for {
-							fmt.Print("Enable detailed logging? (y/n, or type 'back' to return to the menu): ")
+							fmt.Print("\nEnable detailed logging? (y/n, or type 'back' to return to the menu): ")
 							answer, _ := reader.ReadString('\n')
 							answer = strings.TrimSpace(answer)
 							if answer == "back" {
 								break
 							}
 							if answer == "y" {
-								fmt.Println("Detailed logging enabled.")
+								fmt.Println("\nDetailed logging enabled.")
 								break
 							} else if answer == "n" {
-								fmt.Println("Detailed logging disabled.")
+								fmt.Println("\nDetailed logging disabled.")
 								break
 							} else {
-								fmt.Println("Invalid option. Please enter 'y' or 'n'.")
+								fmt.Println("\nInvalid option. Please enter 'y' or 'n'.")
 							}
 						}
 
@@ -303,18 +302,30 @@ func main() {
 						fmt.Println("-hosts <comma-separated-hosts>: Specify hosts to target (only with -e).")
 						fmt.Println("-h: Display this help page.")
 
+					case 0: // Logout
+						fmt.Println("\n\nLogging out...")
+						break // Exit the main menu loop to return to the login menu
+
 					default:
-						fmt.Println("Invalid choice. Please try again.")
+						fmt.Println("\nInvalid choice. Please try again.")
+					}
+
+					// Break out of the for loop when choice is 0 to return to the login menu
+					if choice == 0 {
+						break
 					}
 				}
 			} else {
-				fmt.Println("Invalid username or password.")
+				fmt.Println("\nInvalid username or password.")
 			}
 		case 3:
-			fmt.Println("Exiting EagleDeploy.")
+			fmt.Println("\n-----------------------------------")
+			fmt.Println("\n      Exiting EagleDeploy.")
+			fmt.Println("\n			   Thank You")
+			fmt.Println("\n-----------------------------------")
 			return
 		default:
-			fmt.Println("Invalid choice.")
+			fmt.Println("\nInvalid choice.")
 		}
 	}
 }
