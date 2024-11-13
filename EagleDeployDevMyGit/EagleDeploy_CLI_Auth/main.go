@@ -201,6 +201,7 @@ func listYAMLFiles(keyword string) {
 
 // Main entry point
 func main() {
+	reader := bufio.NewReader(os.Stdin)
 	for {
 		fmt.Println("Welcome to EagleDeploy CLI Auth!")
 		fmt.Println("1. Register")
@@ -212,7 +213,6 @@ func main() {
 		fmt.Scan(&choice)
 
 		var username, password string
-		reader := bufio.NewReader(os.Stdin)
 		var targetHosts []string
 
 		switch choice {
@@ -233,7 +233,7 @@ func main() {
 			fmt.Scan(&password)
 			if authenticateUser(username, password) {
 				fmt.Println("Login successful!")
-				// Loop through the main menu options
+				// Main menu loop after successful login
 				for {
 					choice := displayMenu()
 					switch choice {
