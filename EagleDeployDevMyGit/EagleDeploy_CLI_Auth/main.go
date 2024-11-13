@@ -119,9 +119,16 @@ func main() {
 	fmt.Println("Welcome to EagleDeploy CLI Auth!")
 	fmt.Println("1. Register")
 	fmt.Println("2. Login")
+	fmt.Println("3. Exit")
 	fmt.Print("Choose an option: ")
+
 	var choice int
-	fmt.Scan(&choice)
+	_, err := fmt.Scanln(&choice) // Using Scanln to read the entire line and checking for errors
+	if err != nil {
+		fmt.Println("Invalid choice. Please enter a number.")
+		main() // Restart main function if input is invalid
+		return
+	}
 
 	var username, password string
 	switch choice {
@@ -134,6 +141,7 @@ func main() {
 			fmt.Println("Registration error:", err)
 		} else {
 			fmt.Println("Registration successful!")
+			mainMenu() // Proceed to main menu after successful registration
 		}
 	case 2:
 		fmt.Print("Enter username: ")
@@ -142,14 +150,19 @@ func main() {
 		fmt.Scan(&password)
 		if authenticateUser(username, password) {
 			fmt.Println("Login successful!")
-			mainMenu() // Proceed to main menu or other functionality
+			mainMenu() // Proceed to main menu after successful login
 		} else {
 			fmt.Println("Invalid username or password.")
 		}
+	case 3:
+		fmt.Println("Exiting.")
+		os.Exit(0)
 	default:
-		fmt.Println("Invalid choice.")
+		fmt.Println("Invalid choice. Please enter a valid option.")
+		main() // Restart main function if choice is invalid
 	}
 }
+
 
 // Example main menu that could be expanded with other functionalities
 func mainMenu() {
