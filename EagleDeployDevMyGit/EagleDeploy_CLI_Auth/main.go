@@ -1,18 +1,14 @@
-package main
-
 import (
-	"bufio"
-	"encoding/json"
-	"fmt"
-	"golang.org/x/crypto/bcrypt"
-	"gopkg.in/yaml.v2"
-	"io/ioutil"
-	"log"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
+    "encoding/json"
+    "fmt"
+    "golang.org/x/crypto/bcrypt"
+    "gopkg.in/yaml.v2"
+    "io/ioutil"
+    "log"
+    "os"
+    "os/exec"
 )
+
 
 type Task struct {
 	Name    string `yaml:"name"`
