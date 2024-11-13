@@ -201,115 +201,120 @@ func listYAMLFiles(keyword string) {
 
 // Main entry point
 func main() {
-	fmt.Println("Welcome to EagleDeploy CLI Auth!")
-	fmt.Println("1. Register")
-	fmt.Println("2. Login")
-	fmt.Print("Choose an option: ")
+	for {
+		fmt.Println("Welcome to EagleDeploy CLI Auth!")
+		fmt.Println("1. Register")
+		fmt.Println("2. Login")
+		fmt.Println("3. Exit")
+		fmt.Print("Choose an option: ")
 
-	var choice int
-	fmt.Scan(&choice)
+		var choice int
+		fmt.Scan(&choice)
 
-	var username, password string
-	reader := bufio.NewReader(os.Stdin)
-	var targetHosts []string
+		var username, password string
+		reader := bufio.NewReader(os.Stdin)
+		var targetHosts []string
 
-	switch choice {
-	case 1:
-		fmt.Print("Enter username: ")
-		fmt.Scan(&username)
-		fmt.Print("Enter password: ")
-		fmt.Scan(&password)
-		if err := registerUser(username, password); err != nil {
-			fmt.Println("Registration error:", err)
-		} else {
-			fmt.Println("Registration successful!")
-		}
-	case 2:
-		fmt.Print("Enter username: ")
-		fmt.Scan(&username)
-		fmt.Print("Enter password: ")
-		fmt.Scan(&password)
-		if authenticateUser(username, password) {
-			fmt.Println("Login successful!")
-			for {
-				choice := displayMenu()
-				switch choice {
-				case 1: // Execute a Playbook
-					for {
-						fmt.Print("Enter the path to the YAML playbook file (or type 'back' to return to the menu): ")
-						ymlFilePath, _ := reader.ReadString('\n')
-						ymlFilePath = strings.TrimSpace(ymlFilePath)
-						if ymlFilePath == "back" {
-							break
-						}
-
-						fmt.Print("Enter comma-separated list of target hosts (leave empty for all in playbook): ")
-						hosts, _ := reader.ReadString('\n')
-						hosts = strings.TrimSpace(hosts)
-						if hosts != "" {
-							targetHosts = strings.Split(hosts, ",")
-						}
-
-						executeYAML(ymlFilePath, targetHosts)
-					}
-
-				case 2: // List YAML Files
-					for {
-						fmt.Print("Enter keyword to filter YAML files (or type 'back' to return to the menu): ")
-						keyword, _ := reader.ReadString('\n')
-						keyword = strings.TrimSpace(keyword)
-						if keyword == "back" {
-							break
-						}
-						listYAMLFiles(keyword)
-					}
-
-				case 3: // Manage Inventory
-					fmt.Println("Managing inventory (not yet implemented).")
-					// Add implementation for inventory management here
-
-				case 4: // Enable/Disable Detailed Logging
-					for {
-						fmt.Print("Enable detailed logging? (y/n, or type 'back' to return to the menu): ")
-						answer, _ := reader.ReadString('\n')
-						answer = strings.TrimSpace(answer)
-						if answer == "back" {
-							break
-						}
-						if answer == "y" {
-							fmt.Println("Detailed logging enabled.")
-							break
-						} else if answer == "n" {
-							fmt.Println("Detailed logging disabled.")
-							break
-						} else {
-							fmt.Println("Invalid option. Please enter 'y' or 'n'.")
-						}
-					}
-
-				case 5: // Rollback Changes
-					fmt.Println("Rolling back recent changes (not yet implemented).")
-					// Add rollback implementation here
-
-				case 6: // Help
-					fmt.Println("Help Page:")
-					fmt.Println("-e <yaml-file>: Execute the specified YAML file.")
-					fmt.Println("-l <keyword>: List YAML files or related names in the EagleDeployment directory.")
-					fmt.Println("-hosts <comma-separated-hosts>: Specify hosts to target (only with -e).")
-					fmt.Println("-h: Display this help page.")
-
-				case 0: // Exit
-					fmt.Println("Exiting EagleDeploy.")
-					return
-
-				default:
-					fmt.Println("Invalid choice. Please try again.")
-				}
+		switch choice {
+		case 1:
+			fmt.Print("Enter username: ")
+			fmt.Scan(&username)
+			fmt.Print("Enter password: ")
+			fmt.Scan(&password)
+			if err := registerUser(username, password); err != nil {
+				fmt.Println("Registration error:", err)
+			} else {
+				fmt.Println("Registration successful!")
 			}
-		} else {
-			fmt.Println("Invalid username or password.")
+		case 2:
+			fmt.Print("Enter username: ")
+			fmt.Scan(&username)
+			fmt.Print("Enter password: ")
+			fmt.Scan(&password)
+			if authenticateUser(username, password) {
+				fmt.Println("Login successful!")
+				// Loop through the main menu options
+				for {
+					choice := displayMenu()
+					switch choice {
+					case 1: // Execute a Playbook
+						for {
+							fmt.Print("Enter the path to the YAML playbook file (or type 'back' to return to the menu): ")
+							ymlFilePath, _ := reader.ReadString('\n')
+							ymlFilePath = strings.TrimSpace(ymlFilePath)
+							if ymlFilePath == "back" {
+								break
+							}
+
+							fmt.Print("Enter comma-separated list of target hosts (leave empty for all in playbook): ")
+							hosts, _ := reader.ReadString('\n')
+							hosts = strings.TrimSpace(hosts)
+							if hosts != "" {
+								targetHosts = strings.Split(hosts, ",")
+							}
+
+							executeYAML(ymlFilePath, targetHosts)
+						}
+
+					case 2: // List YAML Files
+						for {
+							fmt.Print("Enter keyword to filter YAML files (or type 'back' to return to the menu): ")
+							keyword, _ := reader.ReadString('\n')
+							keyword = strings.TrimSpace(keyword)
+							if keyword == "back" {
+								break
+							}
+							listYAMLFiles(keyword)
+						}
+
+					case 3: // Manage Inventory
+						fmt.Println("Managing inventory (not yet implemented).")
+
+					case 4: // Enable/Disable Detailed Logging
+						for {
+							fmt.Print("Enable detailed logging? (y/n, or type 'back' to return to the menu): ")
+							answer, _ := reader.ReadString('\n')
+							answer = strings.TrimSpace(answer)
+							if answer == "back" {
+								break
+							}
+							if answer == "y" {
+								fmt.Println("Detailed logging enabled.")
+								break
+							} else if answer == "n" {
+								fmt.Println("Detailed logging disabled.")
+								break
+							} else {
+								fmt.Println("Invalid option. Please enter 'y' or 'n'.")
+							}
+						}
+
+					case 5: // Rollback Changes
+						fmt.Println("Rolling back recent changes (not yet implemented).")
+
+					case 6: // Help
+						fmt.Println("Help Page:")
+						fmt.Println("-e <yaml-file>: Execute the specified YAML file.")
+						fmt.Println("-l <keyword>: List YAML files or related names in the EagleDeployment directory.")
+						fmt.Println("-hosts <comma-separated-hosts>: Specify hosts to target (only with -e).")
+						fmt.Println("-h: Display this help page.")
+
+					case 0: // Exit
+						fmt.Println("Exiting EagleDeploy.")
+						return
+
+					default:
+						fmt.Println("Invalid choice. Please try again.")
+					}
+				}
+			} else {
+				fmt.Println("Invalid username or password.")
+			}
+		case 3:
+			fmt.Println("Exiting EagleDeploy.")
+			return
+		default:
+			fmt.Println("Invalid choice.")
 		}
-	default:
-		fmt.Println("Invalid choice.")
 	}
 }
