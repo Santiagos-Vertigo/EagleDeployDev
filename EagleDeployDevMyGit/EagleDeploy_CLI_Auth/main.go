@@ -300,8 +300,8 @@ func main() {
 						fmt.Println("-h: Display this help page.")
 
 					case 0: // Exit
-						fmt.Println("Exiting EagleDeploy.")
-						return
+						fmt.Println("Returning to login menu...")
+						goto LoginMenu
 
 					default:
 						fmt.Println("Invalid choice. Please try again.")
@@ -316,5 +316,6 @@ func main() {
 		default:
 			fmt.Println("Invalid choice.")
 		}
+	LoginMenu:
 	}
 }
