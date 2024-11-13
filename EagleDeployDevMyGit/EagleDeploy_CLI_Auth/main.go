@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"database/sql"
 	"fmt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
@@ -10,6 +11,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"golang.org/x/crypto/bcrypt"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 // Structs for the YAML structure
@@ -25,177 +29,160 @@ type Playbook struct {
 	Settings map[string]int `yaml:"settings"`
 }
 
-// Function to execute the YAML file by parsing its content
-func executeYAML(ymlFilePath string, targetHosts []string) {
-	data, err := ioutil.ReadFile(ymlFilePath)
+func main() {
+	// Initialize the database connection
+	db, err := sql.Open("sqlite3", "./users.db")
 	if err != nil {
-		log.Fatalf("Error reading YAML file: %v", err)
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	// Ensure the users table exists
+	createUserTable(db)
+
+	// Display main menu for registration and login
+	fmt.Println("Welcome to EagleDeploy CLI!")
+	fmt.Println("1. Register")
+	fmt.Println("2. Login")
+	fmt.Print("Choose an option: ")
+	var choice int
+	fmt.Scan(&choice)
+
+	switch choice {
+	case 1:
+		if registerUser(db) {
+			fmt.Println("Registration successful. You can now log in.")
+		}
+	case 2:
+		if authenticateUser(db) {
+			fmt.Println("Login successful. Welcome!")
+			mainMenu()
+		} else {
+			fmt.Println("Login failed.")
+		}
+	default:
+		fmt.Println("Invalid choice.")
+	}
+}
+
+// Create users table if it doesn't exist
+func createUserTable(db *sql.DB) {
+	_, err := db.Exec(`
+	CREATE TABLE IF NOT EXISTS users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		username TEXT UNIQUE NOT NULL,
+		password_hash TEXT NOT NULL
+	);
+	`)
+	if err != nil {
+		log.Fatal("Failed to create users table:", err)
+	}
+}
+
+// Register a new user
+func registerUser(db *sql.DB) bool {
+	var username, password string
+	fmt.Print("Enter new username: ")
+	fmt.Scan(&username)
+	fmt.Print("Enter new password: ")
+	fmt.Scan(&password)
+
+	// Hash the password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		fmt.Println("Error hashing password:", err)
+		return false
 	}
 
+	// Insert the new user into the database
+	_, err = db.Exec("INSERT INTO users (username, password_hash) VALUES (?, ?)", username, hashedPassword)
+	if err != nil {
+		fmt.Println("Error saving user:", err)
+		return false
+	}
+
+	return true
+}
+
+// Authenticate a user
+func authenticateUser(db *sql.DB) bool {
+	var username, password string
+	fmt.Print("Enter username: ")
+	fmt.Scan(&username)
+	fmt.Print("Enter password: ")
+	fmt.Scan(&password)
+
+	var passwordHash string
+	err := db.QueryRow("SELECT password_hash FROM users WHERE username = ?", username).Scan(&passwordHash)
+	if err != nil {
+		fmt.Println("User not found or database error:", err)
+		return false
+	}
+
+	// Verify password
+	err = bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password))
+	if err != nil {
+		fmt.Println("Incorrect password.")
+		return false
+	}
+
+	return true
+}
+
+// Main menu to execute playbook after login
+func mainMenu() {
+	fmt.Println("Main Menu")
+	fmt.Println("1. Execute Playbook")
+	fmt.Println("2. Exit")
+	fmt.Print("Choose an option: ")
+
+	var option int
+	fmt.Scan(&option)
+	switch option {
+	case 1:
+		runPlaybook()
+	case 2:
+		fmt.Println("Exiting.")
+		os.Exit(0)
+	default:
+		fmt.Println("Invalid option.")
+	}
+}
+
+// Run the playbook from playbook.yaml
+func runPlaybook() {
+	playbook, err := parsePlaybook("playbook.yaml")
+	if err != nil {
+		log.Fatalf("Failed to parse playbook: %v", err)
+	}
+	fmt.Printf("Executing playbook: %s (version %s)\n", playbook.Name, playbook.Version)
+
+	for _, task := range playbook.Tasks {
+		fmt.Printf("Running task: %s\n", task.Name)
+		runTask(task.Command)
+	}
+}
+
+// Parse playbook.yaml
+func parsePlaybook(filename string) (*Playbook, error) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %v", err)
+	}
 	var playbook Playbook
 	err = yaml.Unmarshal(data, &playbook)
 	if err != nil {
-		log.Fatalf("Error parsing YAML file: %v", err)
+		return nil, fmt.Errorf("failed to unmarshal yaml: %v", err)
 	}
-
-	if len(playbook.Tasks) == 0 {
-		log.Fatalf("Error: No tasks found in the playbook.")
-	}
-
-	var hosts []string
-	if len(targetHosts) > 0 {
-		for _, host := range playbook.Hosts {
-			if contains(targetHosts, host) {
-				hosts = append(hosts, host)
-			}
-		}
-		if len(hosts) == 0 {
-			log.Fatalf("Error: No matching hosts found in the playbook for the provided targets.")
-		}
-	} else {
-		hosts = playbook.Hosts
-	}
-
-	fmt.Printf("Executing Playbook: %s (Version: %s) on Hosts: %v\n", playbook.Name, playbook.Version, hosts)
-	for _, task := range playbook.Tasks {
-		if task.Command == "" {
-			log.Fatalf("Error: Task '%s' has no command to execute.", task.Name)
-		}
-
-		fmt.Printf("Executing Task: %s\n", task.Name)
-		cmd := exec.Command("bash", "-c", task.Command)
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("Error executing task '%s': %v\n", task.Name, err)
-		} else {
-			fmt.Printf("Output of '%s':\n%s\n", task.Name, string(output))
-		}
-	}
+	return &playbook, nil
 }
 
-// Helper function to check if a slice contains a specific element
-func contains(slice []string, item string) bool {
-	for _, v := range slice {
-		if v == item {
-			return true
-		}
-	}
-	return false
-}
-
-// Function to list YAML files based on a keyword in the current directory
-func listYAMLFiles(keyword string) {
-	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if filepath.Ext(path) == ".yaml" || filepath.Ext(path) == ".yml" {
-			if strings.Contains(path, keyword) {
-				fmt.Println("Found YAML file:", path)
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		log.Fatalf("Error listing YAML files: %v", err)
-	}
-}
-
-// Display menu and get user choice
-func displayMenu() int {
-	fmt.Println() // Adds a blank line for spacing
-	fmt.Println("EagleDeploy Menu:")
-	fmt.Println("1. Execute a Playbook")
-	fmt.Println("2. List YAML Files")
-	fmt.Println("3. Manage Inventory")
-	fmt.Println("4. Enable/Disable Detailed Logging")
-	fmt.Println("5. Rollback Changes")
-	fmt.Println("6. Show Help")
-	fmt.Println("0. Exit")
-	fmt.Print("Select an option: ")
-
-	var choice int
-	fmt.Scanln(&choice)
-	return choice
-}
-
-func main() {
-	reader := bufio.NewReader(os.Stdin)
-	var targetHosts []string
-
-	for {
-		choice := displayMenu()
-		switch choice {
-		case 1: // Execute a Playbook
-			for {
-				fmt.Print("Enter the path to the YAML playbook file (or type 'back' to return to the menu): ")
-				ymlFilePath, _ := reader.ReadString('\n')
-				ymlFilePath = strings.TrimSpace(ymlFilePath)
-				if ymlFilePath == "back" {
-					break
-				}
-				
-				fmt.Print("Enter comma-separated list of target hosts (leave empty for all in playbook): ")
-				hosts, _ := reader.ReadString('\n')
-				hosts = strings.TrimSpace(hosts)
-				if hosts != "" {
-					targetHosts = strings.Split(hosts, ",")
-				}
-				
-				executeYAML(ymlFilePath, targetHosts)
-			}
-
-		case 2: // List YAML Files
-			for {
-				fmt.Print("Enter keyword to filter YAML files (or type 'back' to return to the menu): ")
-				keyword, _ := reader.ReadString('\n')
-				keyword = strings.TrimSpace(keyword)
-				if keyword == "back" {
-					break
-				}
-				listYAMLFiles(keyword)
-			}
-
-		case 3: // Manage Inventory
-			fmt.Println("Managing inventory (not yet implemented).")
-			// Add implementation for inventory management here
-
-		case 4: // Enable/Disable Detailed Logging
-			for {
-				fmt.Print("Enable detailed logging? (y/n, or type 'back' to return to the menu): ")
-				answer, _ := reader.ReadString('\n')
-				answer = strings.TrimSpace(answer)
-				if answer == "back" {
-					break
-				}
-				if answer == "y" {
-					fmt.Println("Detailed logging enabled.")
-					break
-				} else if answer == "n" {
-					fmt.Println("Detailed logging disabled.")
-					break
-				} else {
-					fmt.Println("Invalid option. Please enter 'y' or 'n'.")
-				}
-			}
-
-		case 5: // Rollback Changes
-			fmt.Println("Rolling back recent changes (not yet implemented).")
-			// Add rollback implementation here
-
-		case 6: // Help
-			fmt.Println("Help Page:")
-			fmt.Println("-e <yaml-file>: Execute the specified YAML file.")
-			fmt.Println("-l <keyword>: List YAML files or related names in the EagleDeployment directory.")
-			fmt.Println("-hosts <comma-separated-hosts>: Specify hosts to target (only with -e).")
-			fmt.Println("-h: Display this help page.")
-
-		case 0: // Exit
-			fmt.Println("Exiting EagleDeploy.")
-			return
-
-		default:
-			fmt.Println("Invalid choice. Please try again.")
-		}
+// Run a shell command as part of a task
+func runTask(command string) {
+	cmd := exec.Command("sh", "-c", command)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("Failed to run task: %v\n", err)
 	}
 }
