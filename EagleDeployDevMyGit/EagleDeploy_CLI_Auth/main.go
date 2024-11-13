@@ -1,16 +1,18 @@
 package main
 
 import (
-    "encoding/json"
-    "fmt"
-    "golang.org/x/crypto/bcrypt"
-    "gopkg.in/yaml.v2"
-    "io/ioutil"
-    "log"
-    "os"
-    "os/exec"
+	"bufio"
+	"encoding/json"
+	"fmt"
+	"golang.org/x/crypto/bcrypt"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
+	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 )
-
 
 type Task struct {
 	Name    string `yaml:"name"`
@@ -38,7 +40,6 @@ func loadUsers() ([]User, error) {
 	file, err := ioutil.ReadFile(userFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// Create an empty JSON array if the file doesn't exist
 			err = ioutil.WriteFile(userFilePath, []byte("[]"), 0644)
 			if err != nil {
 				return nil, err
@@ -47,8 +48,6 @@ func loadUsers() ([]User, error) {
 		}
 		return nil, err
 	}
-
-	// If file is empty, initialize it with an empty array
 	if len(file) == 0 {
 		err = ioutil.WriteFile(userFilePath, []byte("[]"), 0644)
 		if err != nil {
@@ -56,11 +55,9 @@ func loadUsers() ([]User, error) {
 		}
 		return users, nil
 	}
-
 	err = json.Unmarshal(file, &users)
 	return users, err
 }
-
 
 // Save users to users.json
 func saveUsers(users []User) error {
@@ -77,19 +74,15 @@ func registerUser(username, password string) error {
 	if err != nil {
 		return err
 	}
-
-	// Check if username already exists
 	for _, user := range users {
 		if user.Username == username {
 			return fmt.Errorf("user already exists")
 		}
 	}
-
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
-
 	users = append(users, User{Username: username, PasswordHash: string(hashedPassword)})
 	return saveUsers(users)
 }
@@ -101,7 +94,6 @@ func authenticateUser(username, password string) bool {
 		fmt.Println("Error loading users:", err)
 		return false
 	}
-
 	for _, user := range users {
 		if user.Username == username {
 			err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
@@ -114,21 +106,77 @@ func authenticateUser(username, password string) bool {
 	return false
 }
 
-// Main entry point
+// Display menu and get user choice
+func displayMenu() int {
+	fmt.Println("\nEagleDeploy Menu:")
+	fmt.Println("1. Execute a Playbook")
+	fmt.Println("2. List YAML Files")
+	fmt.Println("3. Manage Inventory")
+	fmt.Println("4. Enable/Disable Detailed Logging")
+	fmt.Println("5. Rollback Changes")
+	fmt.Println("6. Show Help")
+	fmt.Println("0. Exit")
+	fmt.Print("Select an option: ")
+
+	var choice int
+	fmt.Scanln(&choice)
+	return choice
+}
+
+// Execute a YAML playbook
+func executeYAML(ymlFilePath string, targetHosts []string) {
+	data, err := ioutil.ReadFile(ymlFilePath)
+	if err != nil {
+		log.Fatalf("Error reading YAML file: %v", err)
+	}
+	var playbook Playbook
+	err = yaml.Unmarshal(data, &playbook)
+	if err != nil {
+		log.Fatalf("Error parsing YAML file: %v", err)
+	}
+	hosts := playbook.Hosts
+	if len(targetHosts) > 0 {
+		hosts = targetHosts
+	}
+	fmt.Printf("Executing Playbook: %s (Version: %s) on Hosts: %v\n", playbook.Name, playbook.Version, hosts)
+	for _, task := range playbook.Tasks {
+		fmt.Printf("Executing Task: %s\n", task.Name)
+		cmd := exec.Command("bash", "-c", task.Command)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("Error executing task '%s': %v\n", task.Name, err)
+		} else {
+			fmt.Printf("Output of '%s':\n%s\n", task.Name, string(output))
+		}
+	}
+}
+
+// List YAML files based on a keyword
+func listYAMLFiles(keyword string) {
+	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml") {
+			if strings.Contains(path, keyword) {
+				fmt.Println("Found YAML file:", path)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		log.Fatalf("Error listing YAML files: %v", err)
+	}
+}
+
+// Main function
 func main() {
 	fmt.Println("Welcome to EagleDeploy CLI Auth!")
 	fmt.Println("1. Register")
 	fmt.Println("2. Login")
-	fmt.Println("3. Exit")
 	fmt.Print("Choose an option: ")
-
 	var choice int
-	_, err := fmt.Scanln(&choice) // Using Scanln to read the entire line and checking for errors
-	if err != nil {
-		fmt.Println("Invalid choice. Please enter a number.")
-		main() // Restart main function if input is invalid
-		return
-	}
+	fmt.Scan(&choice)
 
 	var username, password string
 	switch choice {
@@ -141,7 +189,6 @@ func main() {
 			fmt.Println("Registration error:", err)
 		} else {
 			fmt.Println("Registration successful!")
-			mainMenu() // Proceed to main menu after successful registration
 		}
 	case 2:
 		fmt.Print("Enter username: ")
@@ -150,74 +197,33 @@ func main() {
 		fmt.Scan(&password)
 		if authenticateUser(username, password) {
 			fmt.Println("Login successful!")
-			mainMenu() // Proceed to main menu after successful login
+			// After login, display main menu
+			reader := bufio.NewReader(os.Stdin)
+			var targetHosts []string
+			for {
+				choice := displayMenu()
+				switch choice {
+				case 1:
+					fmt.Print("Enter YAML file path: ")
+					ymlFilePath, _ := reader.ReadString('\n')
+					ymlFilePath = strings.TrimSpace(ymlFilePath)
+					executeYAML(ymlFilePath, targetHosts)
+				case 2:
+					fmt.Print("Enter keyword for YAML files: ")
+					keyword, _ := reader.ReadString('\n')
+					keyword = strings.TrimSpace(keyword)
+					listYAMLFiles(keyword)
+				case 0:
+					fmt.Println("Exiting EagleDeploy.")
+					return
+				default:
+					fmt.Println("Invalid choice.")
+				}
+			}
 		} else {
 			fmt.Println("Invalid username or password.")
 		}
-	case 3:
-		fmt.Println("Exiting.")
-		os.Exit(0)
 	default:
-		fmt.Println("Invalid choice. Please enter a valid option.")
-		main() // Restart main function if choice is invalid
-	}
-}
-
-
-// Example main menu that could be expanded with other functionalities
-func mainMenu() {
-	fmt.Println("Main Menu")
-	fmt.Println("1. Execute Playbook")
-	fmt.Println("2. Exit")
-	fmt.Print("Choose an option: ")
-
-	var option int
-	fmt.Scan(&option)
-	switch option {
-	case 1:
-		runPlaybook()
-	case 2:
-		fmt.Println("Exiting.")
-		os.Exit(0)
-	default:
-		fmt.Println("Invalid option.")
-	}
-}
-
-// Run the playbook from playbook.yaml
-func runPlaybook() {
-	playbook, err := parsePlaybook("playbook.yaml")
-	if err != nil {
-		log.Fatalf("Failed to parse playbook: %v", err)
-	}
-	fmt.Printf("Executing playbook: %s (version %s)\n", playbook.Name, playbook.Version)
-
-	for _, task := range playbook.Tasks {
-		fmt.Printf("Running task: %s\n", task.Name)
-		runTask(task.Command)
-	}
-}
-
-// Parse playbook.yaml
-func parsePlaybook(filename string) (*Playbook, error) {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %v", err)
-	}
-	var playbook Playbook
-	err = yaml.Unmarshal(data, &playbook)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal yaml: %v", err)
-	}
-	return &playbook, nil
-}
-
-// Run a shell command as part of a task
-func runTask(command string) {
-	cmd := exec.Command("sh", "-c", command)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		fmt.Printf("Failed to run task: %v\n", err)
+		fmt.Println("Invalid choice.")
 	}
 }
