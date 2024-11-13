@@ -115,7 +115,7 @@ func displayMenu() int {
 	fmt.Println("4. Enable/Disable Detailed Logging")
 	fmt.Println("5. Rollback Changes")
 	fmt.Println("6. Show Help")
-	fmt.Println("0. Exit")
+	fmt.Println("0. Logout")
 	fmt.Print("Select an option: ")
 
 	var choice int
@@ -299,12 +299,15 @@ func main() {
 						fmt.Println("-hosts <comma-separated-hosts>: Specify hosts to target (only with -e).")
 						fmt.Println("-h: Display this help page.")
 
-					case 0: // Exit
-						fmt.Println("Returning to login menu...")
-						goto LoginMenu
+					case 0: // Logout
+						fmt.Println("Logging out...")
+						break
 
 					default:
 						fmt.Println("Invalid choice. Please try again.")
+					}
+					if choice == 0 {
+						break // Break out of the displayMenu loop to return to the login menu
 					}
 				}
 			} else {
@@ -316,6 +319,5 @@ func main() {
 		default:
 			fmt.Println("Invalid choice.")
 		}
-	LoginMenu:
 	}
 }
