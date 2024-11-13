@@ -38,13 +38,29 @@ func loadUsers() ([]User, error) {
 	file, err := ioutil.ReadFile(userFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return users, nil // No file exists yet, return an empty user list
+			// Create an empty JSON array if the file doesn't exist
+			err = ioutil.WriteFile(userFilePath, []byte("[]"), 0644)
+			if err != nil {
+				return nil, err
+			}
+			return users, nil
 		}
 		return nil, err
 	}
+
+	// If file is empty, initialize it with an empty array
+	if len(file) == 0 {
+		err = ioutil.WriteFile(userFilePath, []byte("[]"), 0644)
+		if err != nil {
+			return nil, err
+		}
+		return users, nil
+	}
+
 	err = json.Unmarshal(file, &users)
 	return users, err
 }
+
 
 // Save users to users.json
 func saveUsers(users []User) error {
