@@ -1,16 +1,15 @@
 package main
 
 import (
-    "encoding/json"
-    "fmt"
-    "golang.org/x/crypto/bcrypt"
-    "gopkg.in/yaml.v2"
-    "io/ioutil"
-    "log"
-    "os"
-    "os/exec"
+	"encoding/json"
+	"fmt"
+	"golang.org/x/crypto/bcrypt"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
+	"log"
+	"os"
+	"os/exec"
 )
-
 
 type Task struct {
 	Name    string `yaml:"name"`
@@ -30,7 +29,10 @@ type User struct {
 	PasswordHash string `json:"password_hash"`
 }
 
-const userFilePath = "users.json"
+const (
+	userFilePath = "users.json"
+	maxAttempts  = 3
+)
 
 // Load users from users.json
 func loadUsers() ([]User, error) {
@@ -60,7 +62,6 @@ func loadUsers() ([]User, error) {
 	err = json.Unmarshal(file, &users)
 	return users, err
 }
-
 
 // Save users to users.json
 func saveUsers(users []User) error {
@@ -94,7 +95,7 @@ func registerUser(username, password string) error {
 	return saveUsers(users)
 }
 
-// Authenticate a user
+// Authenticate a user with limited attempts
 func authenticateUser(username, password string) bool {
 	users, err := loadUsers()
 	if err != nil {
@@ -104,13 +105,22 @@ func authenticateUser(username, password string) bool {
 
 	for _, user := range users {
 		if user.Username == username {
-			err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
-			if err == nil {
-				return true
+			for attempts := 1; attempts <= maxAttempts; attempts++ {
+				err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
+				if err == nil {
+					return true
+				} else if attempts < maxAttempts {
+					fmt.Printf("Incorrect password. Attempt %d of %d. Try again: ", attempts, maxAttempts)
+					fmt.Scan(&password)
+				} else {
+					fmt.Println("Maximum login attempts reached. Access denied.")
+					return false
+				}
 			}
 			break
 		}
 	}
+	fmt.Println("Invalid username or password.")
 	return false
 }
 
@@ -134,6 +144,7 @@ func main() {
 			fmt.Println("Registration error:", err)
 		} else {
 			fmt.Println("Registration successful!")
+			mainMenu() // Proceed to main menu after successful registration
 		}
 	case 2:
 		fmt.Print("Enter username: ")
@@ -142,16 +153,14 @@ func main() {
 		fmt.Scan(&password)
 		if authenticateUser(username, password) {
 			fmt.Println("Login successful!")
-			mainMenu() // Proceed to main menu or other functionality
-		} else {
-			fmt.Println("Invalid username or password.")
+			mainMenu() // Proceed to main menu after successful login
 		}
 	default:
 		fmt.Println("Invalid choice.")
 	}
 }
 
-// Example main menu that could be expanded with other functionalities
+// Main menu with options to execute playbook or exit
 func mainMenu() {
 	fmt.Println("Main Menu")
 	fmt.Println("1. Execute Playbook")
